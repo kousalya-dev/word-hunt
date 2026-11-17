@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Word Hunt · Host</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 22px 28px; min-height: 100vh; display: flex; flex-direction: column; gap: 20px; }
+  header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header .logo-tiles { font-size: 30px; }
+  .status { padding: 7px 14px; border-radius: 999px; font-weight: 900; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
+  .status.lobby { background: #3b3584; color: var(--yellow); }
+  .status.live { background: #0f5e4e; color: var(--teal); animation: pulse 1.6s infinite; }
+  .status.ended { background: #5c2440; color: #ffb3cc; }
+  @keyframes pulse { 50% { opacity: .6; } }
+  .clock { font-family: var(--display); font-size: 22px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .spacer { flex: 1; }
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  main { display: grid; grid-template-columns: 400px 1fr; gap: 20px; flex: 1; min-height: 0; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+  .panel { padding: 20px; }
+  aside .panel { padding: 18px 20px; }
+  aside { display: flex; flex-direction: column; gap: 20px; }
+  .join { text-align: center; display: flex; flex-direction: column; gap: 10px; }
+  .join .ttl { font-family: var(--display); font-size: 26px; }
+  .join img { width: 100%; max-width: 230px; margin: 0 auto; border-radius: 18px; background: #fff; padding: 10px; }
+  .join .url { font-size: 20px; font-weight: 900; word-break: break-all; color: var(--yellow); }
+  .counts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  .count { background: var(--bg2); border-radius: 16px; padding: 10px; }
+  .count b { display: block; font-size: 32px; font-family: var(--display); }
+  .count span { color: var(--muted); font-weight: 800; font-size: 13px; }
+  .scoring h3 { margin: 0 0 12px; font-size: 19px; }
+  .chart .row { grid-template-columns: 96px 1fr 84px; font-size: 15px; }
+
+  #board { overflow: auto; max-height: calc(100vh - 130px); }
+  #board h2 { margin: 0 0 16px; font-size: 28px; display: flex; align-items: center; gap: 12px; }
+  #board h2 .sub { font-family: inherit; font-size: 16px; color: var(--muted); font-weight: 800; }
+  .crowd { display: flex; flex-wrap: wrap; gap: 12px; }
+  .pl { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 8px; border-radius: 99px; background: var(--bg2); border: 2px solid var(--line); font-weight: 900; font-size: 19px; animation: pop .35s ease-out; }
+  .pl .avatar { width: 44px; height: 44px; font-size: 27px; }
+  .pl button { color: var(--muted); font-size: 15px; padding: 0 4px; opacity: 0; transition: opacity .15s; }
+  .pl:hover button { opacity: 1; }
+  .pl button:hover { color: var(--pink); }
+  @keyframes pop { from { transform: scale(.5); opacity: 0; } }
+  .empty { color: var(--muted); font-size: 20px; padding: 60px 0; text-align: center; font-weight: 800; }
+  .empty .big { font-size: 64px; display: block; margin-bottom: 10px; animation: bob 1.8s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-10px); } }
+
+  table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+  th { text-align: left; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; padding: 0 12px; font-weight: 900; }
+  td { background: var(--bg2); padding: 10px 12px; font-size: 19px; font-weight: 800; }
+  td:first-child { border-radius: 14px 0 0 14px; width: 56px; text-align: center; font-family: var(--display); font-size: 22px; }
+  td:last-child { border-radius: 0 14px 14px 0; }
+  tr.r1 td { background: #3a3345; } tr.r1 td:first-child { color: var(--yellow); box-shadow: inset 4px 0 0 var(--yellow); }
+  tr.r2 td { background: #2d2b4c; } tr.r2 td:first-child { color: #e2e2f0; box-shadow: inset 4px 0 0 #d9d9e8; }
+  tr.r3 td { background: #382c43; } tr.r3 td:first-child { color: var(--orange); box-shadow: inset 4px 0 0 var(--orange); }
+  .who { display: flex; align-items: center; gap: 10px; }
+  .who .avatar { width: 38px; height: 38px; font-size: 23px; flex: none; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .score { color: var(--yellow); font-family: var(--display); font-size: 22px; }
+  .prog { height: 9px; background: var(--card); border-radius: 99px; overflow: hidden; min-width: 120px; }
+  .prog > div { height: 100%; background: linear-gradient(90deg, var(--teal), var(--blue)); transition: width .4s; }
+  .done-tag { color: var(--teal); font-size: 13px; margin-left: 6px; }
+
+  .podium { display: flex; align-items: flex-end; justify-content: center; gap: 18px; margin: 6px 0 24px; }
+  .pod { text-align: center; width: 220px; }
+  .pod .avatar { width: 84px; height: 84px; font-size: 50px; margin-bottom: 8px; box-shadow: 0 0 0 4px rgba(255,255,255,.1); }
+  .pod.p1 .avatar { width: 104px; height: 104px; font-size: 62px; box-shadow: 0 0 0 5px var(--yellow); }
+  .pod .name { font-family: var(--display); font-size: 26px; margin-bottom: 2px; word-break: break-word; }
+  .pod .pts { color: var(--muted); font-weight: 800; margin-bottom: 10px; font-size: 15px; }
+  .pod .block { border-radius: 18px 18px 0 0; display: grid; place-items: center; font-family: var(--display); font-size: 56px; color: #1b1640; }
+  .pod.p1 .block { height: 190px; background: linear-gradient(var(--yellow), #e6b416); }
+  .pod.p2 .block { height: 140px; background: linear-gradient(#e6e6f2, #b9b9cc); }
+  .pod.p3 .block { height: 100px; background: linear-gradient(var(--orange), #d96b25); }
+  .pod.p1 { animation: rise .7s .7s both; } .pod.p2 { animation: rise .7s .35s both; } .pod.p3 { animation: rise .7s both; }
+  @keyframes rise { from { transform: translateY(70px); opacity: 0; } }
+
+  .mailbox { margin: 4px 0 20px; padding: 16px 18px; border-radius: 18px; background: var(--bg2); border: 2px solid var(--line); display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .mailbox .list { flex: 1; display: flex; flex-direction: column; gap: 4px; font-weight: 800; min-width: 260px; }
+  .mailbox .st { font-size: 13px; color: var(--muted); }
+  .mailbox .st.ok { color: var(--good); }
+
+  #login { max-width: 380px; margin: 16vh auto 0; display: flex; flex-direction: column; gap: 14px; text-align: center; }
+  #login .logo-tiles { font-size: 34px; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<form id="login" class="hidden glass" style="padding:28px">
+  <div id="loginLogo"></div>
+  <div class="muted" style="font-weight:800">Host screen: enter your host PIN</div>
+  <input id="pin" class="input center" inputmode="numeric" placeholder="Host PIN" autocomplete="off">
+  <div class="error" id="loginErr"></div>
+  <button class="btn" type="submit">Open host screen</button>
+</form>
+
+<div class="wrap hidden" id="app">
+  <header>
+    <div id="logo"></div>
+    <span class="status" id="status"></span>
+    <span class="clock" id="clock"></span>
+    <div class="spacer"></div>
+    <div class="controls">
+      <a class="btn ghost small" href="/admin.html" target="_blank">✏️ Words</a>
+      <button class="btn teal" id="startBtn">▶ Start game</button>
+      <button class="btn pink" id="endBtn">■ End game</button>
+      <button class="btn ghost" id="resetBtn">↺ New game</button>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <section class="glass panel join">
+        <div class="ttl">Scan to join</div>
+        <img id="qr" alt="QR code to join">
+        <div class="url" id="url"></div>
+        <div class="counts">
+          <div class="count"><b id="cPlayers">0</b><span>players</span></div>
+          <div class="count"><b id="cFinished">0</b><span>finished</span></div>
+        </div>
+        <div class="muted" id="meta" style="font-weight:800"></div>
+      </section>
+      <section class="glass panel scoring">
+        <h3>📊 How scoring works</h3>
+        <div id="chart"></div>
+      </section>
+    </aside>
+    <section class="glass panel" id="board"></section>
+  </main>
+</div>
+
+<script src="/shared.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const { esc, logoTiles, scoreChart, toast, confetti, ask, secs } = WH;
+const PIN_KEY = 'wordhunt.pin';
+let pin = null; try { pin = localStorage.getItem(PIN_KEY); } catch {}
+let last = null, prevStatus = null, pollT = null, chartDone = false, lobbyIds = '';
+$('logo').innerHTML = logoTiles('WORD HUNT', [1, 6]);
+$('loginLogo').innerHTML = logoTiles('WORD HUNT', [1, 6]);
+
+async function api(path, method = 'GET', body) {
+  const res = await fetch(path, { method, headers: { 'x-host-pin': pin || '', 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(data.error || 'Request failed'); e.status = res.status; throw e; }
+  return data;
+}
+$('login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  pin = $('pin').value.trim();
+  try { await api('/api/host/login', 'POST'); try { localStorage.setItem(PIN_KEY, pin); } catch {} start(); }
+  catch (err) { $('loginErr').textContent = err.message; }
+});
+function start() { $('login').classList.add('hidden'); $('app').classList.remove('hidden'); poll(); }
+
+async function poll() {
+  clearTimeout(pollT);
+  try { render(await api('/api/host/overview')); }
+  catch (err) { if (err.status === 401) { $('app').classList.add('hidden'); $('login').classList.remove('hidden'); return; } }
+  pollT = setTimeout(poll, 2500);
+}
+
+function render(d) {
+  last = d;
+  $('status').className = 'status ' + d.status;
+  $('status').textContent = { lobby: 'Waiting for players', live: 'Live', ended: 'Finished' }[d.status];
+  if ($('qr').src !== d.qr) $('qr').src = d.qr;
+  $('url').textContent = d.joinUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  if (!chartDone) { $('chart').innerHTML = scoreChart(d.scoring); chartDone = true; }
+  const lb = d.leaderboard;
+  $('cPlayers').textContent = lb.length;
+  $('cFinished').textContent = lb.filter((p) => p.finished).length;
+  $('meta').textContent = `${d.questionCount} words · ${d.timeLimit}s each · ${d.maxTries} tries`;
+  $('startBtn').classList.toggle('hidden', d.status !== 'lobby');
+  $('endBtn').classList.toggle('hidden', d.status !== 'live');
+  $('resetBtn').classList.toggle('hidden', d.status === 'live');
+  $('startBtn').disabled = lb.length === 0 || d.questionCount === 0;
+
+  if (d.status === 'lobby') {
+    const ids = lb.map((p) => p.id).join();
+    if (ids === lobbyIds && $('board').dataset.mode === 'lobby') return;
+    lobbyIds = ids;
+    $('board').dataset.mode = 'lobby';
+    $('board').innerHTML = `<h2>👋 Who’s in <span class="sub">${lb.length} player${lb.length === 1 ? '' : 's'}</span></h2>` + (lb.length
+      ? `<div class="crowd">${lb.slice().sort((a, b) => a.name.localeCompare(b.name)).map((p) => `<span class="pl"><span class="avatar">${esc(p.emoji)}</span>${esc(p.name)}<button title="Remove player" data-kick="${p.id}">✕</button></span>`).join('')}</div>`
+      : `<div class="empty"><span class="big">📱</span>Scan the QR code to join the game</div>`);
+  } else {
+    $('board').dataset.mode = d.status;
+    let html = '';
+    if (d.status === 'ended') {
+      const [a, b, c] = lb;
+      html += `<h2>🏆 Final results</h2><div class="podium">${b ? pod(b, 2) : ''}${a ? pod(a, 1) : ''}${c ? pod(c, 3) : ''}</div>`;
+      html += mailbox(d);
+    } else {
+      html += `<h2>⚡ Live leaderboard <span class="sub">${lb.filter((p) => p.finished).length} of ${lb.length} finished</span></h2>`;
+    }
+    const rows = d.status === 'ended' ? lb.slice(3) : lb;
+    if (rows.length) {
+      html += `<table><thead><tr><th>#</th><th>Player</th><th>Progress</th><th class="num">Solved</th><th class="num">Hints</th><th class="num">Time</th><th class="num">Score</th></tr></thead><tbody>` +
+        rows.map((p) => `<tr class="r${p.rank}"><td>${p.rank}</td>
+          <td><div class="who"><span class="avatar">${esc(p.emoji)}</span>${esc(p.name)}${p.finished ? '<span class="done-tag">✓ done</span>' : ''}</div></td>
+          <td><div class="prog"><div style="width:${(100 * p.answered / Math.max(1, d.questionCount)).toFixed(0)}%"></div></div></td>
+          <td class="num">${p.correct}/${d.questionCount}</td><td class="num">${p.hints}</td><td class="num">${secs(p.totalMs)}</td><td class="num score">${p.score}</td></tr>`).join('') + `</tbody></table>`;
+    } else if (!lb.length) html += `<div class="empty">No players joined.</div>`;
+    $('board').innerHTML = html;
+  }
+  if (prevStatus === 'live' && d.status === 'ended' && lb.length) confetti();
+  prevStatus = d.status;
+}
+function pod(p, n) {
+  return `<div class="pod p${n}"><span class="avatar">${esc(p.emoji)}</span><div class="name">${esc(p.name)}</div>
+    <div class="pts">${p.score} pts · ${p.correct} solved · ${p.hints} hints · ${secs(p.totalMs)}</div><div class="block">${n}</div></div>`;
+}
+function mailbox(d) {
+  const ws = d.winners || [];
+  if (!ws.length) return '';
+  const items = ws.map((w) => {
+    let st;
+    if (!w.email) st = '<span class="st">no email given</span>';
+    else if (w.score <= 0) st = '<span class="st">0 points, not sent</span>';
+    else if (w.sent) st = '<span class="st ok">✓ email sent</span>';
+    else st = `<span class="st">${esc(w.email)}</span>`;
+    return `<div>${['🥇', '🥈', '🥉'][w.rank - 1]} ${esc(w.name)} · ${st}</div>`;
+  }).join('');
+  const pending = ws.some((w) => w.email && w.score > 0 && !w.sent);
+  const btn = !d.mailConfigured
+    ? `<div class="st" style="max-width:280px">📧 Email isn’t set up yet. Add <b>RESEND_API_KEY</b> and <b>MAIL_FROM</b> to enable it.</div>`
+    : pending ? `<button class="btn purple" id="mailBtn">📧 Email the winners</button>` : `<span class="st ok" style="font-weight:900">All winner emails sent 🎉</span>`;
+  return `<div class="mailbox"><div class="list">${items}</div>${btn}</div>`;
+}
+
+setInterval(() => {
+  if (!last) return;
+  const end = last.status === 'ended' ? last.endedAt : last.status === 'live' ? Date.now() : null;
+  if (end && last.startedAt) {
+    const s = Math.max(0, Math.floor((end - last.startedAt) / 1000));
+    $('clock').textContent = `⏱ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  } else $('clock').textContent = '';
+}, 500);
+
+$('board').addEventListener('click', async (e) => {
+  if (e.target.id === 'mailBtn') {
+    e.target.disabled = true; e.target.textContent = 'Sending…';
+    try {
+      const r = await api('/api/host/email-winners', 'POST');
+      const failed = r.results.filter((x) => x.status === 'failed');
+      failed.length ? toast(`Couldn’t send to ${failed.map((f) => f.name).join(', ')}. Check your Resend setup.`) : toast('Winner emails sent!', true);
+    } catch (err) { toast(err.message); }
+    return poll();
+  }
+  const id = e.target.dataset.kick;
+  if (!id) return;
+  await api('/api/host/players/' + id, 'DELETE').catch((err) => toast(err.message));
+  lobbyIds = ''; poll();
+});
+$('startBtn').onclick = async () => { try { await api('/api/host/start', 'POST'); poll(); } catch (err) { toast(err.message); } };
+$('endBtn').onclick = async () => {
+  const unfinished = last.leaderboard.filter((p) => !p.finished).length;
+  if (unfinished && !(await ask('End the game now?', `${unfinished} player(s) are still playing. Their remaining words will count as unanswered.`, 'End game'))) return;
+  try { await api('/api/host/end', 'POST'); poll(); } catch (err) { toast(err.message); }
+};
+$('resetBtn').onclick = async () => {
+  if (last.leaderboard.length && !(await ask('Start a new game?', 'This clears all players and scores. Everyone will need to join again.', 'New game'))) return;
+  try { await api('/api/host/reset', 'POST'); prevStatus = null; lobbyIds = ''; poll(); } catch (err) { toast(err.message); }
+};
+
+if (pin) api('/api/host/login', 'POST').then(start).catch(() => $('login').classList.remove('hidden'));
+else $('login').classList.remove('hidden');
+</script>
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Word Hunt · Words</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 22px 20px 60px; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  header .logo-tiles { font-size: 26px; }
+  .spacer { flex: 1; }
+  .layout { display: grid; grid-template-columns: 420px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .panel { padding: 20px; }
+  .panel h2 { margin: 0 0 14px; font-size: 21px; }
+  #form { position: sticky; top: 16px; }
+  .field { margin-bottom: 14px; }
+  label.l { display: block; font-weight: 800; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .input { padding: 12px 14px; font-size: 16px; }
+  #word { text-transform: uppercase; letter-spacing: 3px; font-weight: 900; font-family: var(--display); }
+  .help { font-size: 12px; color: var(--muted); margin-top: 6px; font-weight: 700; }
+  .tiles { display: flex; flex-wrap: wrap; gap: 4px; }
+  .t { width: 30px; height: 36px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-family: var(--display); background: var(--bg2); border: 2px solid var(--line); color: var(--muted); }
+  .t.on { background: #3b3584; border-color: #7d77c8; color: var(--yellow); }
+  .t.click { cursor: pointer; }
+  .t.gap { background: none; border: 0; width: 12px; }
+  .preview { margin-top: 8px; font-weight: 900; letter-spacing: 4px; font-size: 18px; font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--yellow); }
+  .hint-in { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .hint-in span { width: 54px; flex: none; font-size: 12px; font-weight: 900; color: var(--yellow); }
+  .actions { display: flex; gap: 10px; }
+
+  .w { display: grid; grid-template-columns: 30px 1fr auto; gap: 14px; align-items: start; background: var(--bg2); border-radius: 16px; padding: 14px; margin-bottom: 8px; border: 2px solid transparent; }
+  .w.over-limit { opacity: .45; }
+  .w.editing { border-color: var(--yellow); }
+  .w .n { font-weight: 900; color: var(--muted); text-align: center; padding-top: 3px; }
+  .w .masked { font-weight: 900; letter-spacing: 3px; font-size: 17px; color: var(--yellow); font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .w .ans { font-weight: 900; font-size: 13px; color: var(--teal); letter-spacing: 1px; margin-top: 2px; }
+  .w .cat { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-left: 8px; }
+  .w ol { margin: 8px 0 0; padding-left: 20px; color: var(--text); font-size: 14px; font-weight: 700; line-height: 1.5; }
+  .w ol li::marker { color: var(--yellow); }
+  .w .tools { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; max-width: 150px; }
+  .w .tools button { background: var(--card); border-radius: 8px; padding: 6px 10px; font-size: 13px; font-weight: 800; }
+  .w .tools button:hover:not(:disabled) { background: var(--line); }
+  .banner { background: #5c2440; color: #ffd0e0; padding: 12px 16px; border-radius: 12px; font-weight: 800; margin-bottom: 14px; }
+  .limit-line { color: var(--yellow); font-weight: 800; font-size: 13px; margin: 14px 0 8px; text-align: center; }
+  #login { max-width: 380px; margin: 16vh auto 0; display: flex; flex-direction: column; gap: 14px; text-align: center; padding: 28px; }
+  #login .logo-tiles { font-size: 34px; }
+</style>
+</head>
+<body>
+<form id="login" class="hidden glass">
+  <div id="loginLogo"></div>
+  <div class="muted" style="font-weight:800">Word editor: enter the host PIN</div>
+  <input id="pin" class="input center" inputmode="numeric" placeholder="Host PIN" autocomplete="off">
+  <div class="error" id="loginErr"></div>
+  <button class="btn" type="submit">Open editor</button>
+</form>
+
+<div class="wrap hidden" id="app">
+  <header>
+    <div id="logo"></div>
+    <span class="muted" id="count" style="font-weight:800"></span>
+    <div class="spacer"></div>
+    <button class="btn ghost small" id="shuffleBtn">🔀 Shuffle order</button>
+    <button class="btn ghost small" id="defaultsBtn">↺ Restore default words</button>
+    <button class="btn ghost small" id="clearBtn">🗑 Delete all</button>
+    <a class="btn small" href="/host.html">Host screen →</a>
+  </header>
+  <div class="banner hidden" id="locked">A game is live, so words are locked. End the game on the host screen to edit.</div>
+
+  <div class="layout">
+    <form class="glass panel" id="form" autocomplete="off">
+      <h2 id="formTitle">Add a word</h2>
+      <div class="field">
+        <label class="l" for="word">Word or phrase</label>
+        <input class="input" id="word" maxlength="40" placeholder="e.g. HOLIDAY">
+        <div class="help">Letters, spaces and hyphens only. 4–24 letters.</div>
+      </div>
+      <div class="field">
+        <label class="l">Letters shown to players (tap to toggle)</label>
+        <div class="tiles" id="tiles"><span class="help">Type a word first</span></div>
+        <div class="preview" id="preview"></div>
+        <button type="button" class="btn ghost small" id="autoBtn" style="margin-top:8px">🎲 Auto-pick letters</button>
+      </div>
+      <div class="field">
+        <label class="l">Hints: from vague to helpful (players reveal them one by one)</label>
+        <div class="hint-in"><span>Hint 1</span><input class="input" id="h0" maxlength="160" placeholder="A vague clue, e.g. Something everyone looks forward to"></div>
+        <div class="hint-in"><span>Hint 2</span><input class="input" id="h1" maxlength="160" placeholder="More specific, e.g. A day off work or school"></div>
+        <div class="hint-in"><span>Hint 3</span><input class="input" id="h2" maxlength="160" placeholder="Almost gives it away, e.g. Diwali and Onam are examples"></div>
+        <div class="help">Hint 1 is required. Each hint revealed costs players 25 points.</div>
+      </div>
+      <div class="field">
+        <label class="l" for="category">Category (optional, shown to players)</label>
+        <input class="input" id="category" maxlength="30" placeholder="e.g. Travel">
+      </div>
+      <div class="field">
+        <label class="l" for="accept">Also accept (optional)</label>
+        <input class="input" id="accept" maxlength="120" placeholder="Other valid spellings, comma-separated">
+      </div>
+      <div class="error" id="formErr"></div>
+      <div class="actions">
+        <button class="btn teal" type="submit" id="saveBtn">Add word</button>
+        <button class="btn ghost hidden" type="button" id="cancelBtn">Cancel</button>
+      </div>
+    </form>
+
+    <section class="glass panel">
+      <h2>Words (played in this order)</h2>
+      <div id="list"></div>
+    </section>
+  </div>
+</div>
+
+<script src="/shared.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const { esc, logoTiles, toast, ask } = WH;
+const PIN_KEY = 'wordhunt.pin';
+let pin = null; try { pin = localStorage.getItem(PIN_KEY); } catch {}
+let data = { words: [], limit: 25, locked: false };
+let editingId = null, reveal = new Set();
+$('logo').innerHTML = logoTiles('WORD HUNT', [1, 6]);
+$('loginLogo').innerHTML = logoTiles('WORD HUNT', [1, 6]);
+
+async function api(path, method = 'GET', body) {
+  const res = await fetch(path, { method, headers: { 'x-host-pin': pin || '', 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(d.error || 'Request failed'); e.status = res.status; throw e; }
+  return d;
+}
+const clean = (w) => w.toUpperCase().replace(/[^A-Z \-]/g, '').replace(/\s+/g, ' ').replace(/^[ -]+/, '');
+const masked = (word, rev) => [...word].map((c, i) => (/[A-Z]/.test(c) ? (rev.includes(i) ? c : '_') : c === ' ' ? '  ' : c)).join(' ');
+
+function renderTiles() {
+  const w = clean($('word').value).trim();
+  if (!w) { $('tiles').innerHTML = '<span class="help">Type a word first</span>'; $('preview').textContent = ''; return; }
+  $('tiles').innerHTML = [...w].map((c, i) => c === ' ' ? '<span class="t gap"></span>' : c === '-' ? '<span class="t gap">-</span>' :
+    `<span class="t click ${reveal.has(i) ? 'on' : ''}" data-i="${i}">${c}</span>`).join('');
+  $('preview').textContent = masked(w, [...reveal]);
+}
+$('tiles').addEventListener('click', (e) => {
+  const i = e.target.dataset.i; if (i === undefined) return;
+  const n = Number(i); reveal.has(n) ? reveal.delete(n) : reveal.add(n); renderTiles();
+});
+let autoT = null;
+$('word').addEventListener('input', () => {
+  const pos = $('word').selectionStart;
+  $('word').value = clean($('word').value); $('word').setSelectionRange(pos, pos);
+  clearTimeout(autoT); autoT = setTimeout(autoPick, 350); renderTiles();
+});
+async function autoPick() {
+  const w = clean($('word').value).trim();
+  if (w.replace(/[^A-Z]/g, '').length < 4) { reveal = new Set(); return renderTiles(); }
+  try { const r = await api('/api/admin/words/auto-reveal', 'POST', { word: w }); reveal = new Set(r.reveal); renderTiles(); } catch {}
+}
+$('autoBtn').onclick = autoPick;
+
+function resetForm() {
+  editingId = null; reveal = new Set(); $('form').reset(); renderTiles();
+  $('formTitle').textContent = 'Add a word'; $('saveBtn').textContent = 'Add word';
+  $('cancelBtn').classList.add('hidden'); $('formErr').textContent = ''; renderList();
+}
+$('cancelBtn').onclick = resetForm;
+$('form').addEventListener('submit', async (e) => {
+  e.preventDefault(); $('formErr').textContent = '';
+  const body = { word: $('word').value, hints: [$('h0').value, $('h1').value, $('h2').value], category: $('category').value, accept: $('accept').value, reveal: [...reveal] };
+  $('saveBtn').disabled = true;
+  try {
+    await api(editingId ? '/api/admin/words/' + editingId : '/api/admin/words', editingId ? 'PUT' : 'POST', body);
+    toast(editingId ? 'Saved' : 'Word added', true); resetForm(); await refresh();
+  } catch (err) { $('formErr').textContent = err.message; }
+  finally { $('saveBtn').disabled = false; }
+});
+function edit(w) {
+  editingId = w.id;
+  $('word').value = w.word; $('category').value = w.category || ''; $('accept').value = (w.accept || []).join(', ');
+  [0, 1, 2].forEach((i) => ($('h' + i).value = w.hints[i] || ''));
+  reveal = new Set(w.reveal); renderTiles();
+  $('formTitle').textContent = 'Edit word'; $('saveBtn').textContent = 'Save changes';
+  $('cancelBtn').classList.remove('hidden'); renderList();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function renderList() {
+  const ws = data.words;
+  $('count').textContent = `${ws.length} word${ws.length === 1 ? '' : 's'}` + (ws.length > data.limit ? ` · first ${data.limit} are played` : ws.length < data.limit ? ` · add ${data.limit - ws.length} more for a full ${data.limit}` : ' · ready!');
+  $('locked').classList.toggle('hidden', !data.locked);
+  if (!ws.length) { $('list').innerHTML = '<div class="muted center" style="padding:30px;font-weight:800">No words yet. Add one, or restore the default words.</div>'; return; }
+  $('list').innerHTML = ws.map((w, i) => (i === data.limit ? `<div class="limit-line">▼ Not played: only the first ${data.limit} words are used ▼</div>` : '') + `
+    <div class="w ${i >= data.limit ? 'over-limit' : ''} ${w.id === editingId ? 'editing' : ''}">
+      <div class="n">${i + 1}</div>
+      <div>
+        <div class="masked">${esc(masked(w.word, w.reveal))}</div>
+        <div class="ans">${esc(w.word)}${(w.accept || []).length ? ' · also: ' + esc(w.accept.join(', ')) : ''}<span class="cat">${esc(w.category || '')}</span></div>
+        <ol>${w.hints.map((h) => `<li>${esc(h)}</li>`).join('')}</ol>
+      </div>
+      <div class="tools">
+        <button data-act="up" data-id="${w.id}" ${i === 0 ? 'disabled' : ''}>↑</button>
+        <button data-act="down" data-id="${w.id}" ${i === ws.length - 1 ? 'disabled' : ''}>↓</button>
+        <button data-act="edit" data-id="${w.id}">Edit</button>
+        <button data-act="del" data-id="${w.id}">Delete</button>
+      </div>
+    </div>`).join('');
+}
+$('list').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const w = data.words.find((x) => x.id === b.dataset.id);
+  try {
+    if (b.dataset.act === 'edit') return edit(w);
+    if (b.dataset.act === 'del') {
+      if (!(await ask('Delete this word?', w.word, 'Delete'))) return;
+      await api('/api/admin/words/' + w.id, 'DELETE');
+      if (editingId === w.id) resetForm();
+    }
+    if (b.dataset.act === 'up' || b.dataset.act === 'down') await api('/api/admin/words/move', 'POST', { id: w.id, dir: b.dataset.act });
+    await refresh();
+  } catch (err) { toast(err.message); }
+});
+$('shuffleBtn').onclick = async () => { try { await api('/api/admin/words/shuffle', 'POST'); await refresh(); toast('Order shuffled', true); } catch (err) { toast(err.message); } };
+$('defaultsBtn').onclick = async () => {
+  if (!(await ask('Restore the 25 default words?', 'This replaces all current words.', 'Restore'))) return;
+  try { await api('/api/admin/words/defaults', 'POST'); resetForm(); await refresh(); toast('Default words restored', true); } catch (err) { toast(err.message); }
+};
+$('clearBtn').onclick = async () => {
+  if (!(await ask('Delete ALL words?', 'This cannot be undone.', 'Delete all'))) return;
+  try { await api('/api/admin/words', 'DELETE'); resetForm(); await refresh(); } catch (err) { toast(err.message); }
+};
+async function refresh() { data = await api('/api/admin/words'); renderList(); }
+$('login').addEventListener('submit', async (e) => {
+  e.preventDefault(); pin = $('pin').value.trim();
+  try { await api('/api/host/login', 'POST'); try { localStorage.setItem(PIN_KEY, pin); } catch {} openEditor(); }
+  catch (err) { $('loginErr').textContent = err.message; }
+});
+async function openEditor() { $('login').classList.add('hidden'); $('app').classList.remove('hidden'); await refresh(); }
+if (pin) api('/api/host/login', 'POST').then(openEditor).catch(() => $('login').classList.remove('hidden'));
+else $('login').classList.remove('hidden');
+</script>
+</body>
+</html>
